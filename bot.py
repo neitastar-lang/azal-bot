@@ -2,10 +2,12 @@ import os
 import telebot
 from flask import Flask, request
 
-TOKEN = os.getenv("BOT_TOKEN")
+# Берём токен из переменных окружения Render
+TOKEN = os.getenv("TOKEN")  # ←←← именно так ты добавляла на Render
+
 bot = telebot.TeleBot(TOKEN)
 
-# ────────────────────── ТВОИ ТРИГГЕРЫ (оставляй как есть) ──────────────────────
+# ────────────────────── ТВОИ ТРИГГЕРЫ ──────────────────────
 triggers = {
     "версия": "Версия игры от 1.20 и выше. Также в тг-канале есть все варианты и версии мода на бедрок.",
     "версию": "Версия игры от 1.20 и выше. Также в тг-канале есть все варианты и версии мода на бедрок.",
@@ -16,15 +18,14 @@ triggers = {
     "где скачать": "Все моды есть в тг-канале! Харе лениться и пролистайте его!",
     "азаль": "Я тут, всегда на страже",
     "привет": "Привет, красавчик.",
-    "азаль": "Я тут, всегда на страже",
     "ты так": "Я могу и обидеться",
-    # добавь сюда все остальные свои триггеры, если есть
+    # добавляй сюда сколько угодно
 }
 
 def contains_trigger(text):
     if not text:
         return None
-    text_lower = text.lower().strip()
+    text_lower = text.lower()
     for trigger, reply in triggers.items():
         if trigger in text_lower:
             return reply
@@ -36,23 +37,26 @@ def reply(message):
     if response:
         bot.reply_to(message, response)
 
-# ────────────────────── Flask-приложение для Render ──────────────────────
+# ────────────────────── Flask для Render ──────────────────────
 app = Flask(__name__)
 
 @app.route('/' + TOKEN, methods=['POST'])
-def getMessage():
-    json_string = request.get_data().decode('utf-8')
-    update = telebot.types.Update.de_json(json_string)
-    bot.process_new_updates([update])
-    return "!", 200
+def get_message():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().as_text()
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '', 200
+    else:
+        return 'Invalid content-type', 403
 
 @app.route('/')
-def webhook():
+def index():
     bot.remove_webhook()
-    bot.set_webhook(url='https://azal-bot.onrender.com/' + TOKEN)
-    return "Webhook set!", 200
+    bot.set_webhook(url="https://azal-bot.onrender.com/" + TOKEN)
+    return "Webhook установлен!", 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    print("Бот запущен на Render!")
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.environ.get("PORT", 5000))
+    print("Бот запущен!")
+    app.run(host="0.0.0.0", port=port)
